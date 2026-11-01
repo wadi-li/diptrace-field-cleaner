@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Очистка пользовательских полей DipTrace</title>
+<style>
+:root{
+  --bg:#f6f6f3;--surface:#ffffff;--surface2:#f0efeb;--border:#dcdad3;--text:#24231f;--muted:#6c6a63;
+  --accent:#2f6f73;--accent-h:#245a5d;--ok:#3a7d44;--del:#b04a3a;--warn:#a26b12;
+  --ok-bg:#e8f2e9;--del-bg:#f8e9e6;--warn-bg:#f8f0df;
+  --mono:Consolas,"Cascadia Mono","DejaVu Sans Mono",monospace;
+}
+[data-theme="dark"]{
+  --bg:#1b1c1d;--surface:#242527;--surface2:#2c2d30;--border:#3a3b3f;--text:#e4e2dc;--muted:#9a978f;
+  --accent:#5fa8ac;--accent-h:#78bcc0;--ok:#7cbf86;--del:#e08a7b;--warn:#d9a54a;
+  --ok-bg:#24352a;--del-bg:#3d2723;--warn-bg:#3a3020;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 24px;border-bottom:1px solid var(--border);background:var(--surface)}
+header h1{font-size:17px;margin:0;font-weight:600}
+header .sub{color:var(--muted);font-size:12.5px}
+main{max-width:1240px;margin:0 auto;padding:20px 24px 40px;display:grid;grid-template-columns:330px 1fr;gap:20px}
+@media(max-width:900px){main{grid-template-columns:1fr;padding:16px 12px 32px}}
+main>*{min-width:0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+.card h2{font-size:14px;margin:0 0 10px;font-weight:600}
+.stack{display:flex;flex-direction:column;gap:16px}
+button,.btn{font:inherit;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:6px;padding:7px 12px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{background:var(--accent-h)}
+button:disabled{opacity:.45;cursor:not-allowed}
+#drop{border:1.5px dashed var(--border);border-radius:8px;padding:18px;text-align:center;color:var(--muted);cursor:pointer;transition:border-color .15s,background .15s}
+#drop.over{border-color:var(--accent);background:var(--surface2)}
+#drop b{color:var(--text)}
+textarea{width:100%;min-height:330px;resize:vertical;font:13px/1.5 var(--mono);background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px}
+label.opt{display:flex;gap:8px;align-items:flex-start;margin:6px 0;cursor:pointer}
+label.opt input{margin-top:3px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.muted{color:var(--muted)}
+.small{font-size:12.5px}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+@media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat{background:var(--surface2);border-radius:6px;padding:10px}
+.stat .v{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.stat .l{font-size:12px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:12px;background:var(--surface2);position:sticky;top:0}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+td.name{font-family:var(--mono)}
+.tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:12px;white-space:nowrap}
+.tag.keep{background:var(--ok-bg);color:var(--ok)}
+.tag.del{background:var(--del-bg);color:var(--del)}
+.tag.miss{background:var(--warn-bg);color:var(--warn)}
+.tablewrap{max-height:520px;overflow:auto;border:1px solid var(--border);border-radius:6px}
+.msg{padding:10px 12px;border-radius:6px;margin-top:10px;font-size:13px}
+.msg.err{background:var(--del-bg);color:var(--del)}
+.msg.ok{background:var(--ok-bg);color:var(--ok)}
+.msg.warn{background:var(--warn-bg);color:var(--warn)}
+button.toggle{display:flex;align-items:center;gap:8px;width:100%;text-align:left}
+button.toggle::before{content:"";width:15px;height:15px;line-height:13px;text-align:center;font-size:12px;font-weight:700;border:1.5px solid var(--muted);border-radius:3px;flex:none}
+button.toggle[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+button.toggle[aria-pressed="true"]::before{content:"✓";border-color:#fff;background:#fff;color:var(--accent)}
+[data-theme="dark"] button.toggle[aria-pressed="true"]{color:#12201f}
+[data-theme="dark"] button.toggle[aria-pressed="true"]::before{border-color:#12201f;background:#12201f;color:var(--accent)}
+button.toggle+.subopts,button.toggle+button.toggle{margin-top:6px}
+.subopts{margin:4px 0 10px 22px}
+.subopts.off{opacity:.45;pointer-events:none}
+hr{border:0;border-top:1px solid var(--border);margin:12px 0}
+.tag.add{background:var(--warn-bg);color:var(--warn)}
+.tabs{display:flex;gap:6px;margin-bottom:10px}
+.cnt{font-size:11.5px;opacity:.75;font-variant-numeric:tabular-nums}
+.tabs button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+code{font-family:var(--mono);font-size:12.5px;background:var(--surface2);padding:0 4px;border-radius:3px}
+details summary{cursor:pointer;color:var(--muted)}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Очистка пользовательских полей DipTrace</h1>
+    <div class="sub">Библиотеки компонентов и корпусов в формате XML (.elixml / .libxml). Работает локально, файл никуда не отправляется.</div>
+  </div>
+  <button id="theme" title="Переключить тему">Тёмная тема</button>
+</header>
+
+<main>
+  <div class="stack">
+    <section class="card">
+      <h2>1. Файл библиотеки</h2>
+      <div id="drop" tabindex="0">
+        <b>Перетащите файл сюда</b><br>или нажмите для выбора<br>
+        <span class="small">.elixml, .libxml, .xml — библиотека; .json — настройки</span>
+      </div>
+      <input type="file" id="file" accept=".elixml,.libxml,.xml,.eli,.lib,.json" class="hidden">
+      <div id="fileinfo" class="small muted" style="margin-top:8px"></div>
+      <div id="filemsg"></div>
+    </section>
+
+    <section class="card">
+      <h2>2. Оставить поля</h2>
+      <label class="opt"><input type="checkbox" id="optShared"><span>Один общий список для компонентов и корпусов</span></label>
+      <div class="tabs" id="listTabs" style="margin-top:8px">
+        <button id="ltPart" class="on">Компоненты <span class="cnt" id="cntPart"></span></button>
+        <button id="ltPattern">Корпуса <span class="cnt" id="cntPattern"></span></button>
+      </div>
+      <div class="small muted" style="margin-bottom:6px" id="keepHint"></div>
+      <textarea id="keep" spellcheck="false"></textarea>
+      <div class="row" style="margin-top:8px">
+        <button id="resetKeep">Список по умолчанию</button>
+        <button id="fromFile" disabled>Из первого компонента</button>
+        <button id="copyList" title="Скопировать в этот список содержимое другого списка">Скопировать из корпусов</button>
+      </div>
+      <hr>
+      <div class="row">
+        <button id="saveJson" title="Сохранить списки полей и параметры в JSON-файл">Сохранить настройки (JSON)</button>
+        <button id="loadJson" title="Загрузить списки полей и параметры из JSON-файла">Загрузить настройки</button>
+      </div>
+      <input type="file" id="jsonFile" accept=".json,application/json" class="hidden">
+      <div id="setmsg"></div>
+    </section>
+
+    <section class="card">
+      <h2>3. Параметры</h2>
+      <label class="opt"><input type="checkbox" id="optParts" checked><span>Поля компонентов (Part)</span></label>
+      <label class="opt"><input type="checkbox" id="optPatterns" checked><span>Поля корпусов (Pattern)</span></label>
+      <label class="opt"><input type="checkbox" id="optCase"><span>Сравнивать имена без учёта регистра</span></label>
+      <label class="opt"><input type="checkbox" id="optTrim" checked><span>Игнорировать пробелы по краям имени</span></label>
+      <label class="opt"><input type="checkbox" id="optEmpty" checked><span>Удалять пустой блок <code>AddFields</code>, если в нём не осталось полей</span></label>
+      <hr>
+      <button class="toggle" id="btnAdd" aria-pressed="false" title="Поля из списка, которых нет у объекта, будут добавлены с пустым значением">Добавить недостающее поле, если отсутствует</button>
+      <div class="subopts off" id="subAdd">
+        <label class="opt"><input type="checkbox" id="optAddParts" checked><span>в компоненты</span></label>
+        <label class="opt"><input type="checkbox" id="optAddPatterns"><span>в корпуса, у которых уже есть поля</span></label>
+        <label class="opt"><input type="checkbox" id="optCreate"><span>в корпуса без полей (в том числе оставшиеся без полей после очистки)</span></label>
+        <div class="small muted">Тип поля (текст или ссылка) берётся из этого же поля в файле; для новых имён — «ссылка», если имя оканчивается на <code>_url</code>, иначе «текст».</div>
+      </div>
+      <button class="toggle" id="btnSort" aria-pressed="false" title="Поля каждого объекта будут упорядочены как в списке">Сортировка полей, как в списке</button>
+    </section>
+  </div>
+
+  <div class="stack">
+    <section class="card">
+      <h2>4. Результат</h2>
+      <div class="stats">
+        <div class="stat"><div class="v" id="sObj">—</div><div class="l">объектов с полями</div></div>
+        <div class="stat"><div class="v" id="sAll">—</div><div class="l">полей всего</div></div>
+        <div class="stat"><div class="v" id="sKeep">—</div><div class="l">останется</div></div>
+        <div class="stat"><div class="v" id="sDel">—</div><div class="l">будет удалено</div></div>
+        <div class="stat"><div class="v" id="sAdd">—</div><div class="l">будет добавлено</div></div>
+      </div>
+      <div id="filled" class="small" style="margin-top:8px"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="primary" id="save" disabled>Скачать очищенную библиотеку</button>
+        <button id="report" disabled>Отчёт об изменениях (CSV)</button>
+      </div>
+      <div id="savemsg"></div>
+    </section>
+
+    <section class="card">
+      <div class="tabs">
+        <button id="tabNames" class="on">Имена полей</button>
+        <button id="tabObjs">По объектам</button>
+      </div>
+      <div class="tablewrap" id="tableNames">
+        <table>
+          <thead><tr><th>Поле</th><th>Область</th><th class="num">Встречается</th><th class="num">Заполнено</th><th>Действие</th></tr></thead>
+          <tbody id="tbNames"><tr><td colspan="5" class="muted">Загрузите файл библиотеки</td></tr></tbody>
+        </table>
+      </div>
+      <div class="tablewrap hidden" id="tableObjs">
+        <table>
+          <thead><tr><th>Область</th><th>Объект</th><th class="num">Полей</th><th>Изменения</th></tr></thead>
+          <tbody id="tbObjs"><tr><td colspan="4" class="muted">Загрузите файл библиотеки</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card small">
+      <details>
+        <summary>Как пользоваться</summary>
+        <ol>
+          <li>В редакторе компонентов DipTrace сохраните библиотеку в XML (Файл → Экспорт → XML). Бинарный <code>.eli</code> утилита не изменяет.</li>
+          <li>Загрузите <code>.elixml</code>, проверьте список оставляемых полей и таблицу. Строки «будет удалено» с заполненными значениями отмечены отдельно — проверьте, что данные действительно не нужны.</li>
+          <li>Скачайте очищенный файл и импортируйте его в DipTrace (Файл → Импорт → XML). Рекомендуется сначала проверить результат на копии библиотеки.</li>
+        </ol>
+        <p class="muted">Утилита изменяет только блоки <code>&lt;AddFields&gt;</code>. Остальной текст файла, кодировка, BOM и переводы строк сохраняются без изменений. Списки полей для компонентов и корпусов задаются отдельно (или общим списком) и вместе с параметрами сохраняются в JSON-файл кнопкой «Сохранить настройки»; файл настроек можно загрузить кнопкой или перетащить в поле загрузки. Без кнопок «Добавить недостающее поле» и «Сортировка» порядок оставшихся полей не меняется и новые поля не добавляются. Добавленные поля создаются с пустым значением.</p>
+      </details>
+    </section>
+  </div>
+</main>
+
+<script>
+"use strict";
+const DEFAULT_KEEP = ["Тип","p/n","Desc","1C#","LCSC#","seller","seller_url","home_url","analog","made_in","tech#","cost 1ps","cost bulk","tC_min_storage","tC_min_work","tC_max_ambient","tC_max_junction","tC_max_storage","ShortDesc"];
+const $ = id => document.getElementById(id);
+const SCOPE = {part:"Компонент", pattern:"Корпус"};
+
+let src = null;        // исходный текст (с BOM, если он был)
+let fileName = "";
+let blocks = [];       // найденные блоки AddFields
+let lastResult = null;
+let NL = "\r\n";
+
+// ---------- тема ----------
+(function(){
+  const t = localStorage.getItem("dtfc-theme") || "light";
+  setTheme(t);
+  $("theme").onclick = () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+  function setTheme(t){ document.documentElement.dataset.theme = t; $("theme").textContent = t === "dark" ? "Светлая тема" : "Тёмная тема"; localStorage.setItem("dtfc-theme", t); }
+})();
+
+// ---------- списки полей и настройки ----------
+const DEFAULT_LISTS = {
+  part: DEFAULT_KEEP.slice(),
+  pattern: ["Тип","p/n","Desc","1C#","LCSC#","seller","seller_url","home_url","analog","made_in","tech#"]
+};
+const SETTINGS_FORMAT = "diptrace-field-cleaner-settings";
+const OPTS = { // ключ в JSON → id элемента
+  processParts: "optParts", processPatterns: "optPatterns", caseInsensitive: "optCase", trimNames: "optTrim",
+  removeEmptyBlock: "optEmpty", addToParts: "optAddParts", addToPatterns: "optAddPatterns", createPatternBlocks: "optCreate"
+};
+const TOGGLES = { addMissing: "btnAdd", sortAsList: "btnSort" };
+let lists = { part: DEFAULT_LISTS.part.join("\n"), pattern: DEFAULT_LISTS.pattern.join("\n") };
+let curList = "part";
+const pressed = id => $(id).getAttribute("aria-pressed") === "true";
+const listScope = scope => $("optShared").checked ? "part" : scope;
+const splitList = t => t.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+
+function getSettings(){
+  const o = {}, t = {};
+  for (const [k, id] of Object.entries(OPTS)) o[k] = $(id).checked;
+  for (const [k, id] of Object.entries(TOGGLES)) o[k] = pressed(id);
+  return { format: SETTINGS_FORMAT, version: 1, saved: new Date().toISOString(),
+           sharedList: $("optShared").checked,
+           lists: { part: splitList(lists.part), pattern: splitList(lists.pattern) },
+           options: o };
+}
+function applySettings(st){
+  if (Array.isArray(st)) st = { lists: { part: st } };            // простой массив имён
+  if (!st || typeof st !== "object") throw new Error("ожидается объект JSON");
+  if (st.format && st.format !== SETTINGS_FORMAT) throw new Error(`неизвестный формат «${st.format}»`);
+  const L = st.lists || {};
+  const toText = v => { if (!Array.isArray(v)) throw new Error("список полей должен быть массивом строк"); return v.map(String).join("\n"); };
+  if (L.part !== undefined) lists.part = toText(L.part);
+  if (L.pattern !== undefined) lists.pattern = toText(L.pattern);
+  if (typeof st.sharedList === "boolean") $("optShared").checked = st.sharedList;
+  const o = st.options || {};
+  for (const [k, id] of Object.entries(OPTS)) if (typeof o[k] === "boolean") $(id).checked = o[k];
+  for (const [k, id] of Object.entries(TOGGLES)) if (typeof o[k] === "boolean") $(id).setAttribute("aria-pressed", o[k] ? "true" : "false");
+  if ($("optShared").checked) curList = "part";
+  showList();
+}
+function persist(){ try { localStorage.setItem("dtfc-settings", JSON.stringify(getSettings())); } catch(e){} }
+
+function showList(){
+  const shared = $("optShared").checked;
+  $("listTabs").classList.toggle("hidden", shared);
+  $("ltPart").classList.toggle("on", curList === "part");
+  $("ltPattern").classList.toggle("on", curList === "pattern");
+  $("keep").value = lists[curList];
+  $("cntPart").textContent = "(" + splitList(lists.part).length + ")";
+  $("cntPattern").textContent = "(" + splitList(lists.pattern).length + ")";
+  $("keepHint").textContent = shared
+    ? "Общий список для компонентов и корпусов. По одному имени в строке; остальные пользовательские поля будут удалены."
+    : (curList === "part" ? "Поля компонентов." : "Поля корпусов.") + " По одному имени в строке; остальные поля будут удалены.";
+  $("fromFile").textContent = curList === "pattern" ? "Из первого корпуса" : "Из первого компонента";
+  $("copyList").textContent = curList === "pattern" ? "Скопировать из компонентов" : "Скопировать из корпусов";
+  $("copyList").classList.toggle("hidden", shared);
+  $("subAdd").classList.toggle("off", !pressed("btnAdd"));
+  updateFromFile();
+}
+function updateFromFile(){
+  $("fromFile").disabled = !blocks.some(b => !b.virtual && b.scope === curList && b.fields.length);
+}
+function changed(){ persist(); analyze(); }
+
+$("keep").addEventListener("input", () => { lists[curList] = $("keep").value;
+  $("cntPart").textContent = "(" + splitList(lists.part).length + ")"; $("cntPattern").textContent = "(" + splitList(lists.pattern).length + ")"; changed(); });
+$("ltPart").onclick = () => { curList = "part"; showList(); };
+$("ltPattern").onclick = () => { curList = "pattern"; showList(); };
+$("optShared").addEventListener("change", () => { if ($("optShared").checked) curList = "part"; showList(); changed(); });
+$("resetKeep").onclick = () => { lists[curList] = DEFAULT_LISTS[curList].join("\n"); showList(); changed(); };
+$("copyList").onclick = () => { const other = curList === "part" ? "pattern" : "part"; lists[curList] = lists[other]; showList(); changed(); };
+$("fromFile").onclick = () => {
+  const b = blocks.find(b => !b.virtual && b.scope === curList && b.fields.length);
+  if (b) { lists[curList] = b.fields.map(f => f.name).join("\n"); showList(); changed(); }
+};
+Object.values(OPTS).forEach(id => $(id).addEventListener("change", changed));
+Object.values(TOGGLES).forEach(id => $(id).onclick = () => {
+  $(id).setAttribute("aria-pressed", pressed(id) ? "false" : "true");
+  $("subAdd").classList.toggle("off", !pressed("btnAdd"));
+  changed();
+});
+
+// сохранение и загрузка JSON
+$("saveJson").onclick = () => {
+  const st = getSettings();
+  download("diptrace_fields_settings.json", JSON.stringify(st, null, 2) + "\n", "application/json");
+  msg("setmsg", "ok", `Настройки сохранены: компоненты — ${st.lists.part.length} полей, корпуса — ${st.lists.pattern.length}${st.sharedList ? " (общий список)" : ""}.`);
+};
+$("loadJson").onclick = () => $("jsonFile").click();
+$("jsonFile").onchange = e => { if (e.target.files[0]) loadSettingsFile(e.target.files[0]); e.target.value = ""; };
+async function loadSettingsFile(file){
+  try {
+    const txt = (await file.text()).replace(/^\uFEFF/, "");
+    applySettings(JSON.parse(txt));
+    persist(); analyze();
+    const st = getSettings();
+    msg("setmsg", "ok", `Загружено из <code>${esc(file.name)}</code>: компоненты — ${st.lists.part.length} полей, корпуса — ${st.lists.pattern.length}${st.sharedList ? " (общий список)" : ""}.`);
+  } catch(err) {
+    msg("setmsg", "err", `Не удалось загрузить настройки из <code>${esc(file.name)}</code>: ${esc(err.message)}`);
+  }
+}
+
+// начальное состояние: сохранённые настройки, либо перенос списка из прежней версии
+(function(){
+  try {
+    const st = localStorage.getItem("dtfc-settings");
+    if (st) applySettings(JSON.parse(st));
+    else {
+      const old = localStorage.getItem("dtfc-keep");
+      if (old) lists.part = old;
+      for (const [k, id] of Object.entries(TOGGLES)) if (localStorage.getItem("dtfc-" + id) === "1") $(id).setAttribute("aria-pressed", "true");
+    }
+  } catch(e){}
+  showList();
+})();
+
+// ---------- загрузка ----------
+const drop = $("drop");
+drop.onclick = () => $("file").click();
+drop.onkeydown = e => { if (e.key === "Enter" || e.key === " ") $("file").click(); };
+drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
+drop.ondragleave = () => drop.classList.remove("over");
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over"); if (e.dataTransfer.files[0]) load(e.dataTransfer.files[0]); };
+$("file").onchange = e => { if (e.target.files[0]) load(e.target.files[0]); e.target.value = ""; };
+
+function msg(el, cls, html){ $(el).innerHTML = html ? `<div class="msg ${cls}">${html}</div>` : ""; }
+
+async function load(file){
+  if (/\.json$/i.test(file.name)) { loadSettingsFile(file); return; }
+  msg("filemsg"); msg("savemsg");
+  const buf = new Uint8Array(await file.arrayBuffer());
+  fileName = file.name;
+  $("fileinfo").textContent = `${file.name} — ${(file.size/1024).toFixed(1)} КБ`;
+  // бинарный формат DipTrace начинается с Pascal-строки "DTELIB"/"DTLIB"
+  const head = String.fromCharCode(...buf.slice(0, 16));
+  if (/^.DT[A-Z]*LIB/.test(head) && !head.includes("<")) {
+    src = null; blocks = []; render();
+    msg("filemsg","err","Это бинарная библиотека DipTrace. Откройте её в редакторе компонентов и сохраните в XML (Файл → Экспорт → XML), затем загрузите полученный <code>.elixml</code>.");
+    return;
+  }
+  let text;
+  try { text = new TextDecoder("utf-8", {fatal:true, ignoreBOM:true}).decode(buf); }
+  catch(e){ src = null; blocks = []; render(); msg("filemsg","err","Файл не является корректным UTF-8."); return; }
+  if (!/<Library[^>]+Type="DipTrace-/.test(text.slice(0, 2000))) {
+    msg("filemsg","warn","Не найден заголовок <code>Library Type=\"DipTrace-…\"</code>. Файл обработан, но проверьте результат.");
+  }
+  src = text;
+  blocks = parseBlocks(src);
+  updateFromFile();
+  if (!blocks.length) msg("filemsg","warn","В файле не найдено ни одного блока пользовательских полей <code>AddFields</code>.");
+  analyze();
+}
+
+// ---------- разбор ----------
+function decodeXml(s){
+  return s.replace(/&(lt|gt|amp|quot|apos|#\d+|#x[0-9a-fA-F]+);/g, (m, e) => {
+    if (e === "lt") return "<"; if (e === "gt") return ">"; if (e === "amp") return "&";
+    if (e === "quot") return '"'; if (e === "apos") return "'";
+    if (e[1] === "x" || e[1] === "X") return String.fromCodePoint(parseInt(e.slice(2), 16));
+    return String.fromCodePoint(parseInt(e.slice(1), 10));
+  });
+}
+function tagText(xml, tag){
+  const m = xml.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>|<${tag}(?:\\s[^>]*)?/>`));
+  return m ? decodeXml(m[1] || "") : "";
+}
+
+function parseBlocks(s){
+  const out = [];
+  NL = s.includes("\r\n") ? "\r\n" : "\n";
+  const pStart = s.indexOf("<Patterns>"), pEnd = s.indexOf("</Patterns>");
+  const inPat = at => pStart >= 0 && at > pStart && (pEnd < 0 || at < pEnd);
+  const re = /(\r?\n[ \t]*)?<AddFields>([\s\S]*?)<\/AddFields>/g;
+  let m;
+  while ((m = re.exec(s))) {
+    const at = m.index + (m[1] ? m[1].length : 0);
+    const scope = inPat(at) ? "pattern" : "part";
+    let ownerStart, ownerName = "", extra = "";
+    if (scope === "pattern") ownerStart = lastPatternOpen(s, at);
+    else ownerStart = s.lastIndexOf("<Part ", at);
+    if (ownerStart >= 0) {
+      const seg = s.slice(ownerStart, at);
+      ownerName = tagText(seg, "Name");
+      if (scope === "part") extra = tagText(seg, "PartName");
+    }
+    const inner = m[2];
+    const fields = [];
+    const fre = /(\r?\n([ \t]*))?(<AddField\b[^>]*?(?:\/>|>[\s\S]*?<\/AddField>))/g;
+    let f, ind = null;
+    while ((f = fre.exec(inner))) {
+      const raw = f[3];
+      if (ind === null && f[1]) ind = f[2] || "";
+      const typeM = raw.match(/\sType="([^"]*)"/);
+      fields.push({ name: tagText(raw, "Name"), value: tagText(raw, "Text"), type: typeM ? typeM[1] : "",
+                    raw, start: f.index, end: f.index + f[0].length });
+    }
+    const leadInd = m[1] ? m[1].replace(/^\r?\n/, "") : "";
+    const tail = inner.slice(fields.length ? fields[fields.length - 1].end : 0).match(/\r?\n([ \t]*)$/);
+    out.push({ scope, owner: ownerName || "(без имени)", part: extra, start: m.index, end: m.index + m[0].length,
+               lead: m[1] || "", leadInd, ind: ind ?? leadInd, closeInd: tail ? tail[1] : leadInd,
+               inner, innerStart: m.index + m[0].indexOf("<AddFields>") + "<AddFields>".length, fields });
+  }
+  // корпуса без блока AddFields — кандидаты на создание блока
+  if (pStart >= 0) {
+    const pre = /<Pattern\b(?=[^>]*\sPatternStyle=)[^>]*[^\/]>/g;
+    pre.lastIndex = pStart;
+    let pm;
+    while ((pm = pre.exec(s)) && (pEnd < 0 || pm.index < pEnd)) {
+      const close = s.indexOf("</Pattern>", pm.index);
+      if (close < 0) break;
+      const body = s.slice(pm.index, close);
+      if (body.includes("<AddFields>")) continue;
+      // DipTrace пишет AddFields после Origin/RecoveryCode/Groups и перед DefPad/Pads/Shapes
+      let ins = -1;
+      for (const t of ["<DefPad", "<Pads>", "<Pads/>", "<Shapes>", "<Model3D"]) {
+        const k = body.indexOf(t); if (k >= 0 && (ins < 0 || k < ins)) ins = k;
+      }
+      if (ins < 0) continue;
+      const insertAt = pm.index + ins;
+      const lineStart = s.lastIndexOf("\n", insertAt) + 1;
+      const ind = s.slice(lineStart, insertAt);
+      if (!/^[ \t]*$/.test(ind)) continue;
+      out.push({ scope: "pattern", virtual: true, owner: tagText(body, "Name") || "(без имени)", part: "",
+                 start: lineStart, end: lineStart, insertAt: lineStart, leadInd: ind, ind, closeInd: ind, fields: [] });
+    }
+  }
+  out.sort((x, y) => x.start - y.start);
+  return out;
+}
+function lastPatternOpen(s, at){
+  const re = /<Pattern\b(?=[^>]*\sPatternStyle=)/g; let k = -1, m;
+  const from = Math.max(0, s.lastIndexOf("<Pattern", at) - 200000);
+  re.lastIndex = from;
+  while ((m = re.exec(s)) && m.index < at) k = m.index;
+  return k;
+}
+
+// ---------- анализ ----------
+function keepSet(scope){
+  const ci = $("optCase").checked, tr = $("optTrim").checked;
+  const norm = n => { if (tr) n = n.trim(); if (ci) n = n.toLocaleLowerCase("ru"); return n; };
+  const raw = [], order = new Map();
+  for (let x of lists[listScope(scope)].split(/\r?\n/)) {
+    x = tr ? x.trim() : x;
+    if (!x.length) continue;
+    const k = norm(x);
+    if (order.has(k)) continue;
+    order.set(k, raw.length); raw.push(x);
+  }
+  return { set: new Set(order.keys()), order, norm, raw };
+}
+function xmlEsc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function typeFor(name, typeMap){
+  const c = typeMap.get(name);
+  if (c) return Object.entries(c).sort((a, b) => b[1] - a[1])[0][0];
+  return /_url$/i.test(name) ? "Link" : "Text";
+}
+function analyze(){
+  if (!src) { render(); return; }
+  const KS = { part: keepSet("part"), pattern: keepSet("pattern") };
+  const norm = KS.part.norm;
+  const doScope = { part: $("optParts").checked, pattern: $("optPatterns").checked };
+  const add = pressed("btnAdd"), sort = pressed("btnSort");
+  const addScope = { part: add && $("optAddParts").checked, pattern: add && $("optAddPatterns").checked };
+  const create = add && $("optCreate").checked;
+  const typeMap = new Map();
+  for (const b of blocks) for (const f of b.fields) {
+    const c = typeMap.get(f.name) || {}; c[f.type] = (c[f.type] || 0) + 1; typeMap.set(f.name, c);
+  }
+  let total = 0, kept = 0, del = 0, delFilled = 0, added = 0, sorted = 0, created = 0;
+  const names = new Map(), addedNames = new Map(), objs = [];
+  for (const b of blocks) {
+    const active = doScope[b.scope];
+    const { set, order, raw } = KS[b.scope];
+    if (b.virtual && !(active && create)) { b.changed = false; b.final = []; continue; }
+    const delList = [];
+    for (const f of b.fields) {
+      total++;
+      const keep = !active || set.has(norm(f.name));
+      f.del = !keep;
+      if (keep) kept++; else { del++; delList.push(f.name); if (f.value.trim()) delFilled++; }
+      const key = b.scope + "\u0000" + f.name;
+      if (!names.has(key)) names.set(key, { scope: b.scope, name: f.name, n: 0, filled: 0, del: f.del, active });
+      const r = names.get(key); r.n++; if (f.value.trim()) r.filled++;
+    }
+    let final = b.fields.filter(f => !f.del);
+    const addList = [];
+    if (active && (b.virtual || addScope[b.scope] || (b.scope === "pattern" && create && !final.length))) {
+      const have = new Set(final.map(f => norm(f.name)));
+      for (const n of raw) if (!have.has(norm(n))) {
+        const type = typeFor(n, typeMap);
+        final.push({ name: n, value: "", type, isNew: true,
+          raw: `<AddField Type="${type}">${NL}${b.ind}<Name>${xmlEsc(n)}</Name>${NL}${b.ind}<Text/>${NL}${b.ind}</AddField>` });
+        addList.push(n); have.add(norm(n));
+        const k = b.scope + "\u0000" + n; addedNames.set(k, (addedNames.get(k) || 0) + 1);
+      }
+    }
+    let reordered = false;
+    if (active && sort) {
+      const before = final.slice();
+      const pos = f => order.has(norm(f.name)) ? order.get(norm(f.name)) : 1e9;
+      final = final.map((f, i) => [f, i]).sort((x, y) => pos(x[0]) - pos(y[0]) || x[1] - y[1]).map(x => x[0]);
+      // «переупорядочен» — только если изменился порядок исходных полей
+      const o1 = before.filter(f => !f.isNew), o2 = final.filter(f => !f.isNew);
+      reordered = o1.some((f, i) => f !== o2[i]);
+      if (reordered) sorted++;
+    }
+    added += addList.length; kept += 0;
+    if (b.virtual && addList.length) created++;
+    b.final = final;
+    b.changed = !!(delList.length || addList.length || reordered || (active && sort && final.some((f, i) => f.isNew && i < final.length - 1)));
+    objs.push({ b, delList, addList, reordered });
+  }
+  const missing = [];
+  for (const sc of ["part", "pattern"]) {
+    if (!doScope[sc]) continue;
+    const present = new Set([...names.values()].filter(r => r.scope === sc).map(r => norm(r.name)));
+    for (const n of KS[sc].raw) if (!present.has(norm(n))) missing.push({ scope: sc, name: n });
+  }
+  const finalCount = blocks.reduce((a, b) => a + (b.virtual && !b.changed ? 0 : (b.final ? b.final.length : 0)), 0);
+  lastResult = { total, kept, del, delFilled, added, sorted, created, finalCount, names: [...names.values()], addedNames, objs, missing };
+  render();
+}
+
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function render(){
+  const r = lastResult && src ? lastResult : null;
+  $("sObj").textContent = r ? blocks.filter(b => !b.virtual).length : "—";
+  $("sAll").textContent = r ? r.total : "—";
+  $("sKeep").textContent = r ? r.kept : "—";
+  $("sDel").textContent = r ? r.del : "—";
+  $("sAdd").textContent = r ? r.added : "—";
+  $("save").disabled = !r;
+  $("report").disabled = !r || !(r.del || r.added);
+  if (!r) {
+    $("filled").innerHTML = "";
+    $("tbNames").innerHTML = `<tr><td colspan="5" class="muted">Загрузите файл библиотеки</td></tr>`;
+    $("tbObjs").innerHTML = `<tr><td colspan="4" class="muted">Загрузите файл библиотеки</td></tr>`;
+    return;
+  }
+  const notes = [];
+  notes.push(r.delFilled
+    ? `<span class="tag del">Внимание</span> среди удаляемых ${r.delFilled} полей содержат значения — они будут потеряны.`
+    : (r.del ? `<span class="tag keep">ОК</span> все удаляемые поля пустые.` : `<span class="muted">Удалять нечего.</span>`));
+  if (pressed("btnAdd")) notes.push(r.added
+    ? `<span class="tag add">Добавление</span> ${r.added} пустых полей в ${r.objs.filter(o => o.addList.length).length} объектов${r.created ? `, из них у ${r.created} корпусов создаётся блок полей` : ""}.`
+    : `<span class="muted">Недостающих полей нет.</span>`);
+  if (pressed("btnSort")) notes.push(r.sorted
+    ? `<span class="tag add">Сортировка</span> порядок полей изменится у ${r.sorted} объектов.`
+    : `<span class="muted">Порядок полей уже совпадает со списком.</span>`);
+  $("filled").innerHTML = notes.join("<br>");
+
+  const order = { part: 0, pattern: 1 };
+  const rows = r.names.slice().sort((a, b) => order[a.scope] - order[b.scope] || (b.del - a.del) || b.n - a.n || a.name.localeCompare(b.name));
+  const addTag = (scope, name) => { const n = r.addedNames.get(scope + "\u0000" + name); return n ? ` <span class="tag add">+${n}</span>` : ""; };
+  let h = rows.map(x => `<tr>
+    <td class="name">${esc(x.name) || '<span class="muted">(пусто)</span>'}</td>
+    <td>${SCOPE[x.scope]}</td>
+    <td class="num">${x.n}</td>
+    <td class="num">${x.filled || ""}</td>
+    <td>${!x.active ? '<span class="tag keep">не обрабатывается</span>' : x.del ? '<span class="tag del">удалить</span>' : '<span class="tag keep">оставить</span>' + addTag(x.scope, x.name)}</td>
+  </tr>`).join("");
+  // добавляемые имена, которых в этой области нет вовсе
+  const seen = new Set(r.names.map(x => x.scope + "\u0000" + x.name));
+  for (const [k, n] of r.addedNames) if (!seen.has(k)) {
+    const [scope, name] = k.split("\u0000");
+    h += `<tr><td class="name">${esc(name)}</td><td>${SCOPE[scope]}</td><td class="num">0</td><td></td><td><span class="tag add">добавить +${n}</span></td></tr>`;
+  }
+  h += r.missing.filter(m => !r.addedNames.has(m.scope + "\u0000" + m.name)).map(m => `<tr><td class="name">${esc(m.name)}</td><td>${SCOPE[m.scope]}</td><td class="num">0</td><td></td><td><span class="tag miss">нет в файле</span></td></tr>`).join("");
+  $("tbNames").innerHTML = h || `<tr><td colspan="5" class="muted">Поля не найдены</td></tr>`;
+
+  $("tbObjs").innerHTML = r.objs.map(({b, delList, addList, reordered}) => `<tr>
+    <td>${SCOPE[b.scope]}</td>
+    <td class="name">${esc(b.owner)}${b.part && b.part !== "Part 1" ? ` <span class="muted">/ ${esc(b.part)}</span>` : ""}</td>
+    <td class="num">${b.fields.length}${b.final && b.final.length !== b.fields.length ? ` → ${b.final.length}` : ""}</td>
+    <td>${[
+      delList.length ? `<span class="tag del">−${delList.length}</span> <span class="small muted">${esc(delList.join(", "))}</span>` : "",
+      addList.length ? `<span class="tag add">+${addList.length}</span> <span class="small muted">${esc(addList.join(", "))}</span>` : "",
+      reordered ? `<span class="tag add">порядок</span>` : ""
+    ].filter(Boolean).join("<br>") || '<span class="muted small">—</span>'}</td>
+  </tr>`).join("") || `<tr><td colspan="4" class="muted">Поля не найдены</td></tr>`;
+}
+
+$("tabNames").onclick = () => { $("tabNames").classList.add("on"); $("tabObjs").classList.remove("on"); $("tableNames").classList.remove("hidden"); $("tableObjs").classList.add("hidden"); };
+$("tabObjs").onclick = () => { $("tabObjs").classList.add("on"); $("tabNames").classList.remove("on"); $("tableObjs").classList.remove("hidden"); $("tableNames").classList.add("hidden"); };
+
+// ---------- формирование результата ----------
+function build(){
+  const removeEmpty = $("optEmpty").checked;
+  let out = "", pos = 0;
+  for (const b of blocks) {
+    if (!b.changed) continue;
+    out += src.slice(pos, b.start);
+    const body = b.final.map(f => NL + b.ind + f.raw).join("");
+    if (b.virtual) {
+      out += b.leadInd + "<AddFields>" + body + NL + b.closeInd + "</AddFields>" + NL;
+    } else if (!b.final.length && removeEmpty) {
+      // блок удаляется целиком вместе с переводом строки перед ним
+    } else if (!b.final.some(f => f.isNew) && b.final.every((f, i, arr) => b.fields.filter(x => !x.del)[i] === f)) {
+      // только удаление — вырезаем фрагменты, остальной текст остаётся байт-в-байт
+      let inner = "", ip = 0;
+      for (const f of b.fields) { if (!f.del) continue; inner += b.inner.slice(ip, f.start); ip = f.end; }
+      inner += b.inner.slice(ip);
+      out += src.slice(b.start, b.innerStart) + inner + "</AddFields>";
+    } else {
+      out += b.lead + "<AddFields>" + body + NL + b.closeInd + "</AddFields>";
+    }
+    pos = b.end;
+  }
+  out += src.slice(pos);
+  return out;
+}
+
+function download(name, data, mime){
+  const blob = new Blob([data], { type: mime });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function outName(suffix, ext){
+  const m = fileName.match(/^(.*?)(\.[^.]+)?$/);
+  return (m[1] || "library") + suffix + (ext || m[2] || ".elixml");
+}
+
+$("save").onclick = () => {
+  msg("savemsg");
+  const out = build();
+  // проверка корректности XML
+  const doc = new DOMParser().parseFromString(out.replace(/^\uFEFF/, ""), "application/xml");
+  const err = doc.getElementsByTagName("parsererror")[0];
+  if (err) { msg("savemsg","err","Результат не прошёл проверку XML, файл не сохранён: " + esc(err.textContent.slice(0, 300))); return; }
+  // контроль: число полей в результате
+  const cnt = (out.match(/<AddField\b/g) || []).length;
+  const expected = lastResult.finalCount;
+  if (cnt !== expected) { msg("savemsg","err",`Контроль не пройден: ожидалось ${expected} полей, в результате ${cnt}. Файл не сохранён.`); return; }
+  const bytes = new TextEncoder().encode(out);
+  download(outName("_clean"), bytes, "application/xml");
+  const diff = src.length - out.length;
+  msg("savemsg","ok",`Сохранено: <code>${esc(outName("_clean"))}</code>. Удалено полей: ${lastResult.del}, добавлено: ${lastResult.added}, переупорядочено объектов: ${lastResult.sorted}, итого полей: ${cnt}. XML корректен.` + (diff === 0 ? " Файл не изменился." : ""));
+};
+
+$("report").onclick = () => {
+  const q = v => { v = String(v ?? ""); return /[";\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const lines = [["Действие","Область","Объект","Часть","Поле","Тип","Значение"].join(";")];
+  for (const b of blocks) {
+    if (!b.changed) continue;
+    for (const f of b.fields) if (f.del) lines.push(["Удалено", SCOPE[b.scope], b.owner, b.part, f.name, f.type, f.value].map(q).join(";"));
+    for (const f of b.final) if (f.isNew) lines.push([b.virtual ? "Добавлено (новый блок)" : "Добавлено", SCOPE[b.scope], b.owner, b.part, f.name, f.type, ""].map(q).join(";"));
+  }
+  download(outName("_fields_report", ".csv"), "\uFEFF" + lines.join("\r\n") + "\r\n", "text/csv;charset=utf-8");
+};
+</script>
+</body>
+</html>
