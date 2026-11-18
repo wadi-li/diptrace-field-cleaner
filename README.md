@@ -1,4 +1,15 @@
-# DipTrace Field Cleaner
+# Добавление, удаление, стандартизация полей в базах компонентов DipTrace
+
+## Постоянное название проекта
+
+Использовать эти названия в каталоге, README и ссылках. Менять только по прямому указанию владельца.
+
+| Язык | Название |
+| --- | --- |
+| RU | Добавление, удаление, стандартизация полей в базах компонентов DipTrace |
+| UA | Додавання, видалення, стандартизація полів у базах компонентів DipTrace |
+| EN | Add, remove and standardize fields in DipTrace component libraries |
+| FRA | Ajout, suppression et normalisation des champs des bibliothèques de composants DipTrace |
 
 Автономная HTML-утилита для приведения пользовательских полей (`AddFields`) в XML-библиотеках DipTrace (`.elixml`, `.libxml`) к заданному списку.
 
